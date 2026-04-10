@@ -2,3 +2,7 @@
 .env
 __pycache__/
 db_data
+VeRi/
+test*
+train_pipeline/
+requirements_front.txt

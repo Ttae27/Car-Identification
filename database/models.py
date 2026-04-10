@@ -54,7 +54,7 @@ class CarImage(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     image_path: Mapped[str] = mapped_column(Text, nullable=False)
     
-    EMBEDDING_DIMENSION = 512 
+    EMBEDDING_DIMENSION = 768
     embedding_vector = mapped_column(Vector(EMBEDDING_DIMENSION), nullable=False)
 
     car_id: Mapped[uuid.UUID] = mapped_column(

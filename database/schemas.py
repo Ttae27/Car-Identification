@@ -24,8 +24,8 @@ class CarImageBase(BaseModel):
     image_path: str
     embedding_vector: list[float] = Field(
         ...,
-        min_length=512,
-        max_length=512
+        min_length=768,
+        max_length=768
     )
 
 class CarImageCreate(CarImageBase):

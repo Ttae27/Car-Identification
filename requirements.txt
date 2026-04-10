@@ -5,3 +5,4 @@ uuid
 python-dotenv
 uvicorn
 fastapi
+python-multipart

@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, File, UploadFile
 from database.database import get_db
 from uuid import UUID
 from typing import List
@@ -25,10 +25,11 @@ async def create_car(
 @app.post("/cars/{car_id}/images/", response_model=List[schemas.CarImageResponse])
 async def add_car_image(
     car_id: UUID,
-    image: List[schemas.CarImageCreate],
-    db: services.Session = Depends(get_db)):
-
-    image_db = services.add_car_image(car_id, image, db)
+    images: List[UploadFile] = File(...),
+    db: services.Session = Depends(get_db)
+):
+    image_db = services.add_car_image(car_id, images, db)
+    
     if image_db is None:
         raise HTTPException(status_code=404, detail="Car not found")
     

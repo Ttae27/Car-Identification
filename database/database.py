@@ -6,8 +6,6 @@ from database.models import Base
 
 load_dotenv()
 
-print(f"DEBUG: Connecting as {os.getenv('POSTGRES_USER')} with pass {os.getenv('POSTGRES_PASSWORD')}")
-
 POSTGRES_USER = os.getenv("POSTGRES_USER", "postgres")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "password")
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
@@ -22,7 +20,7 @@ def init_db():
     with engine.connect() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         conn.commit()
-        
+
     Base.metadata.create_all(bind=engine)
 
 def get_db():
