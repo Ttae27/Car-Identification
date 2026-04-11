@@ -1,8 +1,10 @@
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from database import schemas, models
 from uuid import UUID
 from typing import List
 import random
+import time
 
 import torch
 from transformers import AutoImageProcessor, AutoModel
@@ -47,6 +49,8 @@ def create_car(car: schemas.RegisteredCarCreate, db: Session):
 
 ## Add image to a car
 def add_car_image(car_id: UUID, images: List[UploadFile], db: Session):
+    UPLOAD_DIR = "uploaded_images"
+    os.makedirs(UPLOAD_DIR, exist_ok=True)
     db_car = db.query(models.RegisteredCar).filter(
         models.RegisteredCar.car_id == car_id,
     ).first()
@@ -57,21 +61,33 @@ def add_car_image(car_id: UUID, images: List[UploadFile], db: Session):
     created_images = []
 
     for image in images:
-        print(f"Processing in-memory file: {image.filename}")
+        print(f"Processing and saving file: {image.filename}")
         
         try:
+            # 1. Read the bytes once into memory
             file_bytes = image.file.read()
+            
+            # 2. Extract embedding (in-memory processing)
             pil_image = Image.open(BytesIO(file_bytes)).convert("RGB")
             real_vector = extract_embedding_from_data(pil_image)
             
+            # 3. Create a unique filename and local path
+            # Example: uploaded_images/123e4567-e89b..._167948302_car.png
+            timestamp = int(time.time())
+            unique_filename = f"{car_id}_{timestamp}_{image.filename}"
+            local_file_path = os.path.join(UPLOAD_DIR, unique_filename)
+            
+            # 4. Save the actual file to your local folder
+            with open(local_file_path, "wb") as f:
+                f.write(file_bytes)
+            
         except Exception as e:
-            print(f"Failed to process image data for {image.filename}: {e}")
+            print(f"Failed to process or save image {image.filename}: {e}")
             continue 
 
-        placeholder_path = f"memory_upload_{image.filename}"
-
+        # 5. Save the real local path to the database
         new_image = models.CarImage(
-            image_path=placeholder_path,  # See note above
+            image_path=local_file_path,  # <-- Replaced placeholder
             embedding_vector=real_vector,
             car_id=car_id
         )
@@ -87,8 +103,10 @@ def add_car_image(car_id: UUID, images: List[UploadFile], db: Session):
 # READ
 ## Read all active cars
 def read_cars(db: Session):
-    # return db.query(models.RegisteredCar).filter(models.RegisteredCar.is_active == True).all()
-    db_cars = db.query(models.RegisteredCar).all()
+    db_cars = db.query(models.RegisteredCar).filter(
+        models.RegisteredCar.deleted_date.is_(None)
+    ).all()
+    
     if not db_cars:
         return []
     return db_cars
@@ -97,7 +115,7 @@ def read_cars(db: Session):
 def read_car_details(car_id: UUID, db: Session):
     db_car = db.query(models.RegisteredCar).filter(
         models.RegisteredCar.car_id == car_id,
-        # models.RegisteredCar.is_active == True
+        models.RegisteredCar.deleted_date.is_(None)
     ).first()
 
     if db_car is None:
@@ -146,16 +164,18 @@ def update_car_image(car_id: UUID, images: List[schemas.CarImageCreate], db: Ses
     return updated_images
 
 # DELETE
-def delete_car(car_id: UUID, db: Session):
+def delete_car(car_id: UUID, db: Session, deleted_by: str = "system"):
     db_car = db.query(models.RegisteredCar).filter(
         models.RegisteredCar.car_id == car_id,
-        # models.RegisteredCar.is_active == True
+        models.RegisteredCar.deleted_date.is_(None) 
     ).first()
 
     if db_car is None:
         return None
     
-    db_car.is_active = False
+    db_car.deleted_date = datetime.now(timezone.utc)
+    db_car.deleted_by = deleted_by
+    
     db.commit()
     
     return {"message": f"Car {car_id} deleted successfully"}
