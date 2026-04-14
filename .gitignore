@@ -1,8 +1,14 @@
 .venv
 .env
+.env.local
 __pycache__/
 db_data
 VeRi/
 test*
 train_pipeline/
 uploaded_images/
+dist/
+package-lock.json
+node_modules/
+*.log
+*.pyc
