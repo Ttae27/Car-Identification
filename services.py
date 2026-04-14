@@ -1,8 +1,8 @@
 from datetime import datetime, timezone
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 from database import schemas, models
 from uuid import UUID
-from typing import List
+from typing import List, Tuple
 import random
 import time
 
@@ -122,6 +122,19 @@ def read_car_details(car_id: UUID, db: Session):
         return None
     
     return db_car
+
+def read_cars_paginated(db: Session, skip: int = 0, limit: int = 8) -> Tuple[list[models.RegisteredCar], int]:
+    base_query = db.query(models.RegisteredCar).filter(
+        models.RegisteredCar.deleted_date.is_(None)
+    )
+    
+    total_count = base_query.count()
+    
+    db_cars = base_query.options(
+        selectinload(models.RegisteredCar.images)
+    ).offset(skip).limit(limit).all()
+    
+    return db_cars, total_count
 
 # UPDATE
 ## Update car details

@@ -64,3 +64,13 @@ class RegisteredCarResponse(RegisteredCarBase):
 class RegisteredCarDetailResponse(RegisteredCarResponse):
     images: list[CarImageResponse] = []
     logs: list[LogsResponse] = []
+
+class PaginatedCarItem(RegisteredCarResponse):
+    image_url: Optional[str] = None
+
+class PaginatedCarsResponse(BaseModel):
+    items: list[PaginatedCarItem]
+    total: int
+    page: int
+    size: int
+    pages: int
