@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import CarForm from './carForm';
 
 // --- TYPES ---
 interface CarRecord {
@@ -29,12 +30,15 @@ const Sidebar: React.FC = () => (
   </aside>
 );
 
-const CarCard: React.FC<{ data: CarRecord }> = ({ data }) => {
+const CarCard: React.FC<{ data: CarRecord; onClick: (car: CarRecord) => void }> = ({ data, onClick }) => {
   // Fallback image if the car has no image_url
   const imgSrc = data.image_url || 'https://via.placeholder.com/150x100/e0e0e0/000000?text=No+Image';
 
   return (
-    <div className="bg-[#3d4957] flex p-4 shadow-md border border-[#3d4957]">
+    <div 
+    onClick={() => onClick(data)}
+    className="bg-[#3d4957] flex p-4 shadow-md border border-[#3d4957]"
+    >
       <img
         src={imgSrc}
         alt={`รถทะเบียน ${data.plate}`}
@@ -60,35 +64,48 @@ const CarCard: React.FC<{ data: CarRecord }> = ({ data }) => {
 // --- MAIN APP LAYOUT ---
 
 const CarList: React.FC = () => {
+  const [currentView, setCurrentView] = useState<'list' | 'form'>('list');
+  const [selectedCar, setSelectedCar] = useState<CarRecord | null>(null);
   const [data, setData] = useState<CarRecord[]>([]);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [totalPages, setTotalPages] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Fetch data when the component mounts or when currentPage changes
-  useEffect(() => {
-    const fetchCars = async () => {
-      setIsLoading(true);
-      try {
-        // Updated to use the explicit 127.0.0.1 IP address
-        const response = await fetch(`http://127.0.0.1:8000/cars/?page=${currentPage}&size=8`);
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result: PaginatedResponse = await response.json();
-        setData(result.items);
-        setTotalPages(result.pages);
-      } catch (error) {
-        console.error("Error fetching cars:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchCars = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`http://127.0.0.1:8000/cars/?page=${currentPage}&size=8`);
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const result: PaginatedResponse = await response.json();
+      setData(result.items);
+      setTotalPages(result.pages);
+    } catch (error) {
+      console.error("Error fetching cars:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
+  useEffect(() => {
     fetchCars();
   }, [currentPage]);
+
+  const handleCreateNew = () => {
+    setSelectedCar(null);
+    setCurrentView('form');
+  };
+
+  const handleEditCar = (car: CarRecord) => {
+    setSelectedCar(car);
+    setCurrentView('form');
+  };
+
+  const handleBackToList = () => {
+    setCurrentView('list');
+    setSelectedCar(null);
+    fetchCars();
+  };
 
   const handlePrevPage = () => {
     if (currentPage > 1) setCurrentPage(prev => prev - 1);
@@ -98,6 +115,11 @@ const CarList: React.FC = () => {
     if (currentPage < totalPages) setCurrentPage(prev => prev + 1);
   };
 
+  if (currentView === 'form') {
+    return <CarForm initialData={selectedCar || undefined} onBack={handleBackToList} />;
+  }
+
+
   return (
     <div className="flex h-screen w-full bg-[#5C666B] font-sans overflow-hidden">
       <Sidebar />
@@ -105,6 +127,7 @@ const CarList: React.FC = () => {
           {/* Floating Action Button (+) */}
           <div className="absolute top-6 right-8 z-10">
             <button 
+              onClick={handleCreateNew}
               className="bg-[#F7C003] w-11 h-11 rounded-full flex items-center justify-center text-black text-5xl font-bold leading-none shadow-lg hover:bg-yellow-500 transition-colors focus:outline-none"
               aria-label="Add new record"
             >
@@ -126,7 +149,11 @@ const CarList: React.FC = () => {
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-6 gap-y-6">
               {data.map((car) => (
-                <CarCard key={car.car_id} data={car} />
+                <CarCard 
+                key={car.car_id} 
+                data={car} 
+                onClick={handleEditCar}
+                />
               ))}
             </div>
           )}

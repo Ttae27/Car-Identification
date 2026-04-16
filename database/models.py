@@ -10,7 +10,6 @@ from sqlalchemy import (
     String,
     Text,
 )
-
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from pgvector.sqlalchemy import Vector
@@ -55,7 +54,7 @@ class CarImage(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     image_path: Mapped[str] = mapped_column(Text, nullable=False)
     
-    EMBEDDING_DIMENSION = 768
+    EMBEDDING_DIMENSION = 768 
     embedding_vector = mapped_column(Vector(EMBEDDING_DIMENSION), nullable=False)
 
     car_id: Mapped[uuid.UUID] = mapped_column(
