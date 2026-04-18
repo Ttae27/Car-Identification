@@ -1,10 +1,8 @@
 import streamlit as st
 import requests
-import random
-from PIL import Image, ImageOps  # <-- Add this line
 import io
-import os
 import time
+from PIL import Image, ImageOps
 
 # Set the base URL for your FastAPI backend
 BASE_URL = "http://localhost:8000"
@@ -32,6 +30,7 @@ def get_uniform_image(image_path, size=(300, 300)):
         return ImageOps.fit(img, size, Image.Resampling.LANCZOS)
     except Exception as e:
         return None
+
 # -----------------------------------------
 # TAB 1: View All Cars & Details
 # -----------------------------------------
@@ -46,8 +45,12 @@ with tab1:
 
     try:
         response = requests.get(f"{BASE_URL}/cars/")
-        if response.status_code == 200:
-            cars = response.json()
+        
+        # FIX: The backend returns 404 when no cars exist, not an empty list. 
+        # We need to handle 404 as a valid "empty" state.
+        if response.status_code == 200 or response.status_code == 404:
+            cars = response.json() if response.status_code == 200 else []
+            
             if not cars:
                 st.info("No cars found in the database. Go to 'Register New Car' to add one.")
             else:
@@ -57,7 +60,7 @@ with tab1:
                 # --- LEFT COLUMN: Clickable List ---
                 with list_col:
                     st.subheader(f"Cars List ({len(cars)})")
-                    with st.container(height=800): # Increased height slightly
+                    with st.container(height=800): 
                         for car in cars:
                             with st.container(border=True):
                                 st.markdown(f"**Plate:** {car.get('plate')}")
@@ -101,7 +104,6 @@ with tab1:
                                     # Update Form
                                     with manage_tab_update:
                                         with st.form(f"update_form_{selected_id}"):
-                                            # Pre-fill inputs with existing details
                                             update_plate = st.text_input("License Plate *", value=details.get('plate'))
                                             update_label = st.text_input("Label", value=details.get('label') or "")
                                             update_desc = st.text_area("Description", value=details.get('description') or "")
@@ -118,12 +120,14 @@ with tab1:
                                                         "updated_by": update_by if update_by else None
                                                     }
                                                     update_res = requests.put(f"{BASE_URL}/cars/{selected_id}", json=payload)
+                                                    
                                                     if update_res.status_code == 200:
                                                         st.success("Car updated successfully!")
-                                                        time.sleep(1) # Brief pause so user sees success message
+                                                        time.sleep(1)
                                                         st.rerun()
                                                     else:
-                                                        st.error(f"Error: {update_res.text}")
+                                                        error_detail = update_res.json().get("detail", update_res.text)
+                                                        st.error(f"Error: {error_detail}")
                                     
                                     # Delete Button
                                     with manage_tab_delete:
@@ -131,11 +135,13 @@ with tab1:
                                         if st.button("🚨 Yes, Delete this Car", use_container_width=True):
                                             del_res = requests.delete(f"{BASE_URL}/cars/{selected_id}")
                                             if del_res.status_code == 200:
-                                                st.session_state.selected_car_id = None # Clear selection
+                                                st.session_state.selected_car_id = None
                                                 st.success("Car deleted successfully!")
+                                                time.sleep(1)
                                                 st.rerun()
                                             else:
-                                                st.error(f"Error: {del_res.text}")
+                                                error_detail = del_res.json().get("detail", del_res.text)
+                                                st.error(f"Error: {error_detail}")
 
                                 st.divider()
                                 
@@ -166,9 +172,8 @@ with tab1:
                                 if st.button("Reset Selection"):
                                     st.session_state.selected_car_id = None
                                     st.rerun()
-                                    
         else:
-            st.error("Failed to fetch cars. Check your backend logs.")
+            st.error(f"Failed to fetch cars. Error {response.status_code}: {response.text}")
             
     except requests.exceptions.ConnectionError:
         st.error("🔌 Cannot connect to the backend. Is FastAPI running on port 8000?")
@@ -179,8 +184,6 @@ with tab1:
 with tab2:
     st.header("➕ Register a New Car")
     st.markdown("Fill out the vehicle details and upload associated images in one step.")
-    
-    # NOTE: st.form is removed here so the file uploader can trigger live image previews!
     
     col_text, col_img = st.columns([1, 1], gap="large")
     
@@ -200,19 +203,16 @@ with tab2:
         )
         st.caption("These will be processed by the Vision model for embeddings.")
         
-        # --- NEW: Live Image Previews ---
+        # Live Image Previews
         if uploaded_files:
             st.write("#### 👁️ Previews:")
-            # Create a mini grid of 3 columns for the previews
             preview_cols = st.columns(3)
             for idx, file in enumerate(uploaded_files):
                 with preview_cols[idx % 3]:
-                    # Display the image preview
                     st.image(file, use_container_width=True)
     
     st.divider()
     
-    # Standard st.button replaces the st.form_submit_button
     submitted = st.button("🚀 Register Car & Upload Images", type="primary", use_container_width=True)
     
     if submitted:
@@ -247,10 +247,12 @@ with tab2:
                             st.success(f"✅ Car registered successfully and {len(uploaded_files)} image(s) processed!")
                             st.balloons()
                         else:
-                            st.warning(f"⚠️ Car was registered (ID: {new_car_id}), but images failed to upload: {img_res.text}")
+                            error_detail = img_res.json().get("detail", img_res.text)
+                            st.warning(f"⚠️ Car was registered (ID: {new_car_id}), but images failed to upload: {error_detail}")
                     else:
-                        # Success without images
                         st.success("✅ Car registered successfully! (No images were attached).")
+                        st.balloons()
                         
                 else:
-                    st.error(f"❌ Failed to register car: {car_res.text}")
+                    error_detail = car_res.json().get("detail", car_res.text)
+                    st.error(f"❌ Failed to register car: {error_detail}")
