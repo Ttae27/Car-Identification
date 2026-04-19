@@ -14,16 +14,6 @@ interface CarFormProps {
   onBack: () => void; 
 }
 
-const Sidebar: React.FC = () => (
-  <aside className="w-64 bg-[#4A4F53] h-full p-4 flex flex-col border-r border-gray-600 shrink-0">
-    <div className="bg-[#F7C003] h-10 rounded-md w-full mb-6"></div>
-    <div className="flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity">
-      <span className="text-[#F7C003] font-medium text-sm">แสดงรายการข้อมูล</span>
-      <div className="bg-[#F7C003] h-6 w-12 rounded-md"></div>
-    </div>
-  </aside>
-);
-
 const CarForm: React.FC<CarFormProps> = ({ initialData, onBack }) => {
   const isEditMode = !!initialData;
 
@@ -74,7 +64,7 @@ const CarForm: React.FC<CarFormProps> = ({ initialData, onBack }) => {
   const handleRemoveImage = (indexToRemove: number) => {
     const urlToRemove = previewUrls[indexToRemove];
     if (urlToRemove.startsWith('blob:')) {
-      URL.revokeObjectURL(urlToRemove); // คืน Memory
+      URL.revokeObjectURL(urlToRemove); 
     }
     
     setPreviewUrls(prev => prev.filter((_, index) => index !== indexToRemove));
@@ -118,7 +108,7 @@ const CarForm: React.FC<CarFormProps> = ({ initialData, onBack }) => {
 
         if (!response.ok) throw new Error("Failed to create car");
         const newCar = await response.json();
-        currentCarId = newCar.car_id; // ได้ ID รถคันใหม่มา
+        currentCarId = newCar.car_id;
       }
 
       if (currentCarId && selectedFiles.length > 0) {
@@ -147,57 +137,27 @@ const CarForm: React.FC<CarFormProps> = ({ initialData, onBack }) => {
   const handleDelete = async () => {
 
     if (!initialData) return;
-
-
-
     if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้? (Are you sure you want to delete this?)')) {
-
       try {
-
         console.log("Deleting Data via API DELETE for ID:", initialData.car_id);
-
-       
-
         const response = await fetch(`http://127.0.0.1:8000/cars/${initialData.car_id}`, {
-
           method: 'DELETE',
-
         });
-
-
-
         if (!response.ok) {
-
           const errorData = await response.json();
-
           throw new Error(errorData.detail || "Failed to delete car");
-
         }
-
-
-
         alert("ลบข้อมูลสำเร็จ!");
-
         onBack();
-
-
-
       } catch (error: any) {
-
         console.error("API Error:", error);
-
         alert(`เกิดข้อผิดพลาดในการลบ: ${error.message}`);
-
       }
-
     }
-
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#5C666B] font-sans overflow-hidden">
-      <Sidebar />
-      
+    <div className="flex h-screen w-full bg-[#5C666B] font-sans overflow-hidden">      
       <main className="flex-1 flex flex-col items-center justify-center p-8 relative overflow-y-auto">
         <button 
           onClick={onBack}

@@ -18,20 +18,7 @@ interface PaginatedResponse {
   pages: number;
 }
 
-// --- COMPONENTS ---
-
-const Sidebar: React.FC = () => (
-  <aside className="w-64 bg-[#4A4F53] h-full p-4 flex flex-col border-r border-gray-600 shrink-0">
-    <div className="bg-[#F7C003] h-10 rounded-md w-full mb-6"></div>
-    <div className="flex items-center justify-between cursor-pointer hover:opacity-80 transition-opacity">
-      <span className="text-[#F7C003] font-medium text-sm">แสดงรายการข้อมูล</span>
-      <div className="bg-[#F7C003] h-6 w-12 rounded-md"></div>
-    </div>
-  </aside>
-);
-
 const CarCard: React.FC<{ data: CarRecord; onClick: (car: CarRecord) => void }> = ({ data, onClick }) => {
-  // Fallback image if the car has no image_url
   const imgSrc = data.image_url || 'https://via.placeholder.com/150x100/e0e0e0/000000?text=No+Image';
 
   return (
@@ -61,8 +48,6 @@ const CarCard: React.FC<{ data: CarRecord; onClick: (car: CarRecord) => void }> 
   );
 };
 
-// --- MAIN APP LAYOUT ---
-
 const CarList: React.FC = () => {
   const [currentView, setCurrentView] = useState<'list' | 'form'>('list');
   const [selectedCar, setSelectedCar] = useState<CarRecord | null>(null);
@@ -71,7 +56,6 @@ const CarList: React.FC = () => {
   const [totalPages, setTotalPages] = useState<number>(1);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Fetch data when the component mounts or when currentPage changes
   const fetchCars = async () => {
     setIsLoading(true);
     try {
@@ -122,17 +106,13 @@ const CarList: React.FC = () => {
 
   return (
     <div className="flex h-screen w-full bg-[#5C666B] font-sans overflow-hidden">
-      <Sidebar />
         <main className="flex-1 flex flex-col relative overflow-y-auto">
-          {/* Floating Action Button (+) */}
           <div className="absolute top-6 right-8 z-10">
             <button 
               onClick={handleCreateNew}
               className="bg-[#F7C003] w-11 h-11 rounded-full flex items-center justify-center text-black text-5xl font-bold leading-none shadow-lg hover:bg-yellow-500 transition-colors focus:outline-none"
               aria-label="Add new record"
             >
-              {/* Adding pb-1 slightly nudges the plus sign up, 
-                  offsetting the natural bottom-heavy baseline of text characters */}
               <span className="pb-3">+</span>
             </button>
           </div>
