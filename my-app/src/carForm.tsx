@@ -1,30 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react"
+import { type CarRecord } from "./carList";
 
-// --- TYPES ---
-interface CarRecord {
-  car_id: string;
-  plate: string;
-  label: string | null;
-  description: string | null;
-  image_url: string | null; // ของเดิมมีแค่ URL เดียว (ถ้า API อัปเดตให้ส่งกลับมาเป็น Array ได้จะดีมากครับ)
-}
 
 interface CarFormProps {
   initialData?: CarRecord;
-  onBack: () => void; 
+  onBack: () => void;
 }
 
 const CarForm: React.FC<CarFormProps> = ({ initialData, onBack }) => {
-  const isEditMode = !!initialData;
+  const isEditMode: boolean = !!initialData;
 
-  const [formData, setFormData] = useState({
+  const [ formData, setFormData ] = useState({
     plate: '',
     label: '',
     description: ''
   });
 
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]); 
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   useEffect(() => {
     if (initialData) {
@@ -37,210 +31,195 @@ const CarForm: React.FC<CarFormProps> = ({ initialData, onBack }) => {
         setPreviewUrls([initialData.image_url]);
       }
     }
-    
+
     return () => {
-      previewUrls.forEach(url => {
-        if (url.startsWith('blob:')) URL.revokeObjectURL(url);
+      previewUrls.forEach((url: string) => {
+        if(url.startsWith('blob:')) URL.revokeObjectURL(url);
       });
     };
   }, [initialData]);
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev: typeof formData) => ({ ...prev, [name]: value }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const filesArray = Array.from(e.target.files);
-      
-      setSelectedFiles(prev => [...prev, ...filesArray]);
-      
+    if(e.target.files && e.target.files.length > 0) {
+      const filesArray = Array.from(e.target.files) as File[];
+      setSelectedFiles((prev: File[]) => [...prev, ...filesArray]);
+
       const newPreviews = filesArray.map(file => URL.createObjectURL(file));
-      setPreviewUrls(prev => [...prev, ...newPreviews]);
+      setPreviewUrls((prev: string[]) => [...prev, ...newPreviews]);
     }
   };
 
   const handleRemoveImage = (indexToRemove: number) => {
     const urlToRemove = previewUrls[indexToRemove];
-    if (urlToRemove.startsWith('blob:')) {
-      URL.revokeObjectURL(urlToRemove); 
+    if (urlToRemove.startsWith('blob:')){
+      URL.revokeObjectURL(urlToRemove);
     }
-    
-    setPreviewUrls(prev => prev.filter((_, index) => index !== indexToRemove));
-    
-    setSelectedFiles(prev => prev.filter((_, index) => index !== indexToRemove));
+    setPreviewUrls((prev: string[]) => prev.filter((_, index) => index !== indexToRemove));
+    setSelectedFiles((prev: File[]) => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!formData.plate) {
-      alert("กรุณากรอกทะเบียนรถ (Plate is required)");
+      alert("กรุณากรอกหมายเลขทะเบียน");
       return;
     }
 
+    setIsSubmitting(true);
     try {
       let currentCarId = initialData?.car_id;
 
-      if (isEditMode && currentCarId) {
-        const response = await fetch(`http://127.0.0.1:8000/cars/${currentCarId}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            plate: formData.plate,
-            label: formData.label || null,
-            description: formData.description || null,
-          }),
-        });
+      const method = isEditMode ? "PUT" : "POST";
+      const url = isEditMode
+        ? `http://127.0.0.1:8000/cars/${currentCarId}` 
+        : `http://127.0.0.1:8000/cars/`;
+      const response = await fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
 
-        if (!response.ok) throw new Error("Failed to update car");
-        alert("อัปเดตข้อมูลรถสำเร็จ!");
+      if(!response.ok) throw new Error("Failed to save car data");
 
-      } else {
-        const response = await fetch(`http://127.0.0.1:8000/cars/`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            plate: formData.plate,
-            label: formData.label || null,
-            description: formData.description || null,
-          }),
-        });
-
-        if (!response.ok) throw new Error("Failed to create car");
+      if (!isEditMode) {
         const newCar = await response.json();
         currentCarId = newCar.car_id;
       }
 
       if (currentCarId && selectedFiles.length > 0) {
         const imageFormData = new FormData();
-        selectedFiles.forEach(file => {
-          imageFormData.append("images", file); 
-        });
+        selectedFiles.forEach(file => imageFormData.append('images', file));
 
-        const imgResponse = await fetch(`http://127.0.0.1:8000/cars/${currentCarId}/images/`, {
+        const imgRes = await fetch(`http://127.0.0.1:8000/cars/${currentCarId}/images/`, {
           method: 'POST',
           body: imageFormData,
         });
-
-        if (!imgResponse.ok) throw new Error("Failed to upload images");
-        alert(isEditMode ? "อัปโหลดรูปภาพใหม่สำเร็จ!" : "สร้างข้อมูลรถและอัปโหลดรูปสำเร็จ!");
+        if(!imgRes.ok) throw new Error("Failed to upload images");
       }
 
+      alert("บันทึกข้อมูลรถสำเร็จ");
       onBack();
-
-    } catch (error: any) {
-      console.error("API Error:", error);
-      alert(`เกิดข้อผิดพลาด: ${error.message}`);
+    } catch (err: any) {
+      alert(err.message || "เกิดข้อผิดพลาดในการบันทึกข้อมูลรถ");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
+    if (!initialData || !window.confirm("คุณแน่ใจหรือไม่ว่าต้องการลบรถคันนี้?")) return;
 
-    if (!initialData) return;
-    if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบข้อมูลนี้? (Are you sure you want to delete this?)')) {
-      try {
-        console.log("Deleting Data via API DELETE for ID:", initialData.car_id);
-        const response = await fetch(`http://127.0.0.1:8000/cars/${initialData.car_id}`, {
-          method: 'DELETE',
-        });
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(errorData.detail || "Failed to delete car");
-        }
-        alert("ลบข้อมูลสำเร็จ!");
-        onBack();
-      } catch (error: any) {
-        console.error("API Error:", error);
-        alert(`เกิดข้อผิดพลาดในการลบ: ${error.message}`);
-      }
+    try {
+      const res = await fetch(`http://127.0.0.1:8000/cars/${initialData.car_id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error("ลบข้อมูลไม่สำเร็จ");
+      alert("ลบรถสำเร็จ");
+      onBack();
+    } catch (err: any) {
+      alert(err.message || "เกิดข้อผิดพลาดในการลบรถ");
     }
   };
 
   return (
-    <div className="flex h-screen w-full bg-[#5C666B] font-sans overflow-hidden">      
-      <main className="flex-1 flex flex-col items-center justify-center p-8 relative overflow-y-auto">
-        <button 
-          onClick={onBack}
-          className="absolute top-6 left-8 text-white bg-[#4A4F53] px-4 py-2 rounded hover:bg-gray-600 transition"
-        >
-          &larr; กลับ
-        </button>
+    <>
+      <div className="car-form-container">
+        <header className="form-header">
+          <button className="back-btn" onClick={onBack}>&larr; กลับ</button>
+          <h1>{isEditMode ? "แก้ไขข้อมูลรถ" : "สร้างรถใหม่"}</h1>
+        </header>
 
-        <div className="bg-[#4A4F53] rounded-xl p-8 shadow-lg max-w-4xl w-full border border-gray-600 my-auto">
-          
-          <div className="bg-[#3d4957] p-4 rounded-md mb-8">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-[#F7C003] font-bold">แกลลอรี่ภาพรถ</span>
+        <main className="form-content">
+          <form onSubmit={handleSubmit} className="car-form">
+            <section className="form-gallery">
+              <div className="gallery-header">
+                <h3>รูปภาพรถ</h3>
+                <label className="file-upload-btn">
+                  + อัปโหลดรูปภาพ
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleFileChange}
+                    className="input-file-hidden"
+                  />
+                </label>
+              </div>
               
-              <label className="bg-[#F7C003] text-black px-4 py-1.5 rounded cursor-pointer hover:bg-yellow-500 transition font-medium text-sm">
-                + อัปโหลดรูปภาพ
-                <input 
-                  type="file" 
-                  multiple 
-                  accept="image/*" 
-                  onChange={handleFileChange} 
-                  className="hidden" 
-                />
-              </label>
-            </div>
+              <div className="image-grid-preview">
+                {previewUrls.length === 0 ? (
+                  <p className="empty-msg">ยังไม่มีรูปภาพ</p>
+                ) : (
+                  previewUrls.map((url, index) => (
+                    <div key={index} className="preview-item">
+                      <img src={url} alt="Preview"/>
+                      <button
+                        type="button"
+                        className="btn-remove-img"
+                        onClick={() => handleRemoveImage(index)}
+                      >
+                        &times;
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </section>
 
-            <div className="grid grid-cols-3 gap-2">
-              {previewUrls.length === 0 ? (
-                <div className="col-span-3 text-center py-8 text-gray-400 text-sm">
-                  ยังไม่มีรูปภาพ กรุณาอัปโหลด
+            <section className="form-inputs">
+              <div className="input-row">
+                <div className="input-group">
+                  <label htmlFor="plate">หมายเลขทะเบียน</label>
+                  <input
+                    id="plate"
+                    type="text"
+                    name="plate"
+                    value={formData.plate}
+                    onChange={handleInputChange}
+                    required
+                  />
                 </div>
-              ) : (
-                previewUrls.map((url, index) => (
-                  <div key={index} className="relative group">
-                    <img 
-                      src={url} 
-                      alt={`Car preview ${index}`} 
-                      className="w-full h-32 object-cover rounded border border-gray-600"
-                    />
-                    <button
-                      onClick={() => handleRemoveImage(index)}
-                      className="absolute top-1 right-1 bg-red-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold opacity-80 hover:opacity-100 hover:scale-110 transition-all shadow-md"
-                      title="ลบรูปนี้"
-                    >
-                      X
-                    </button>
-                  </div>
-                ))
+                <div className="input-group">
+                  <label htmlFor="label">ป้ายกำกับ</label>
+                  <input
+                    id="label"
+                    type="text"
+                    name="label"
+                    value={formData.label}
+                    onChange={handleInputChange}
+                  />
+                </div>
+              </div>
+              <div className="input-group full-width">
+                <label htmlFor="description">รายละเอียด</label>
+                <textarea
+                  id="description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleInputChange}
+                  rows={4}
+                />
+              </div>
+            </section>
+
+            <footer className="form-footer">
+              {isEditMode && (
+                <button type="button" className="btn-action-delete" onClick={handleDelete}>
+                  DELETE
+                </button>
               )}
-            </div>
-          </div>
-
-          {/* --- ส่วน Form Inputs (เหมือนเดิม) --- */}
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div>
-              <label className="block text-[#F7C003] font-bold mb-2">ทะเบียนรถ (Plate)</label>
-              <input type="text" name="plate" value={formData.plate} onChange={handleChange} className="w-full bg-[#e0e0e0] px-4 py-3 focus:outline-none" />
-            </div>
-            <div>
-              <label className="block text-[#F7C003] font-bold mb-2">ป้ายกำกับ (Label)</label>
-              <input type="text" name="label" value={formData.label} onChange={handleChange} className="w-full bg-[#e0e0e0] px-4 py-3 focus:outline-none" />
-            </div>
-          </div>
-
-          <div className="mb-8">
-            <label className="block text-[#F7C003] font-bold mb-2">คำอธิบาย (Description)</label>
-            <textarea name="description" value={formData.description} onChange={handleChange} rows={4} className="w-full bg-[#e0e0e0] px-4 py-3 focus:outline-none resize-none" />
-          </div>
-
-          <div className="flex justify-end items-center space-x-4">
-            <button onClick={handleSubmit} className="bg-[#F7C003] text-black font-bold px-8 py-2 rounded-sm shadow-md">
-              {isEditMode ? 'update' : 'CREATE'}
-            </button>
-            {isEditMode && (
-              <button onClick={handleDelete} className="bg-[#cc0000] text-white font-bold px-8 py-2 rounded-sm shadow-md">
-                DELETE
+              <button type="submit" className="btn-action-submit" disabled={isSubmitting}>
+                {isSubmitting ? 'SAVING...' : (isEditMode ? 'UPDATE' : 'CREATE')}
               </button>
-            )}
-          </div>
+            </footer>
 
-        </div>
-      </main>
-    </div>
+          </form>
+        </main>
+      </div>
+    </>
   );
 };
 
