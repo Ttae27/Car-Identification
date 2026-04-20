@@ -6,3 +6,4 @@ VeRi/
 test*
 train_pipeline/
 uploaded_images/
+cctv_saved_frames/
