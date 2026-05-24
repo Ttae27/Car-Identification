@@ -60,10 +60,14 @@ async def update_car(car_id: UUID, car: schemas.RegisteredCarUpdate, db: service
     return updated_car
 
 @app.put("/cars/{car_id}/images/", response_model=List[schemas.CarImageResponse])
-async def update_car_image(car_id: UUID, images: List[schemas.CarImageUpdate], db: services.Session = Depends(get_db)):
+async def update_car_image(
+    car_id: UUID,
+    images: List[UploadFile] = File(...),
+    db: services.Session = Depends(get_db),
+):
     updated_images = services.update_car_image(car_id, images, db)
     if updated_images is None:
-        raise HTTPException(status_code=404, detail="Image not found")
+        raise HTTPException(status_code=404, detail="Car not found")
     return updated_images
 
 # DELETE

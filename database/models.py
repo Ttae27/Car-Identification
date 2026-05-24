@@ -3,7 +3,6 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from sqlalchemy import (
-    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -55,7 +54,8 @@ class CarImage(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     image_path: Mapped[str] = mapped_column(Text, nullable=False)
     
-    EMBEDDING_DIMENSION = 1152
+    # DINOv3 ViT-B/16 (facebook/dinov3-vitb16-pretrain-lvd1689m) → 768
+    EMBEDDING_DIMENSION = 768
     embedding_vector = mapped_column(Vector(EMBEDDING_DIMENSION), nullable=False)
 
     car_id: Mapped[uuid.UUID] = mapped_column(
@@ -71,11 +71,11 @@ class Logs(Base):
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True
     )
-    camera: Mapped[str] = mapped_column(String(255), nullable=False) 
+    camera: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    status: Mapped[bool] = mapped_column(Boolean, nullable=False, index=True) 
-    
-    similarity_score: Mapped[float] = mapped_column(Float, nullable=True) 
+    match_method: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+
+    similarity_score: Mapped[float] = mapped_column(Float, nullable=True)
     
     frame_image_path: Mapped[str] = mapped_column(Text, nullable=False) 
 

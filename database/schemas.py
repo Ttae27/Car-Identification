@@ -5,16 +5,17 @@ from datetime import datetime
 
 # ==== Log schemas ====
 class LogsBase(BaseModel):
-    location: str
-    status: bool
     camera: str
+    match_method: str
+    frame_image_path: str
+    similarity_score: Optional[float] = None
 
 class LogsCreate(LogsBase):
     timestamp: Optional[datetime] = None
 
 class LogsResponse(LogsBase):
     id: int
-    car_id: UUID
+    car_id: Optional[UUID] = None
     timestamp: datetime
 
     model_config = ConfigDict(from_attributes=True)
@@ -24,8 +25,8 @@ class CarImageBase(BaseModel):
     image_path: str
     embedding_vector: list[float] = Field(
         ...,
-        min_length=1152,
-        max_length=1152
+        min_length=768,
+        max_length=768,
     )
 
 class CarImageCreate(CarImageBase):

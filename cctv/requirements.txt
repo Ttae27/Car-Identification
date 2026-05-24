@@ -1,2 +1,7 @@
-qdrant-client 
+qdrant-client
 schedule
+fastapi
+python-multipart
+python-dotenv
+uvicorn
+requests

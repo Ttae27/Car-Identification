@@ -1,11 +1,11 @@
 sqlalchemy
-psycopg2-binary 
+psycopg2-binary
 pgvector
 uuid
 python-dotenv
 uvicorn
 fastapi
 python-multipart
-peft
-litserve
-sentencepiece
+requests
+qdrant-client
+schedule

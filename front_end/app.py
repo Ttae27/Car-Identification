@@ -1,11 +1,25 @@
+import os
 import streamlit as st
 import requests
+from requests.auth import HTTPDigestAuth
+import urllib3
 import io
 import time
 from PIL import Image, ImageOps
 
+urllib3.disable_warnings()
+
 # Set the base URL for your FastAPI backend
-BASE_URL = "http://localhost:8000"
+BASE_URL = "http://localhost:8100"
+
+# Dahua AI box — frame_image_path values stored in Logs are device-side
+# paths (e.g. /mnt/dvr/sda0/2026/04/30/xxx.jpg). They must be fetched via
+# RPC_Loadfile with HTTP digest auth, the same mechanism back-end uses
+# during ingest. Duplicated here rather than imported — front-end and
+# back-end are separate deploy units.
+DAHUA_HOST = os.getenv("DAHUA_HOST", "192.168.20.200")
+DAHUA_USER = os.getenv("DAHUA_USER", "admin")
+DAHUA_PASSWORD = os.getenv("DAHUA_PASSWORD", "admin123")
 
 st.set_page_config(page_title="Car Registration Management", layout="wide")
 st.title("Car Registration Management")
@@ -25,10 +39,47 @@ def get_uniform_image(image_path, size=(300, 300)):
             img = Image.open(io.BytesIO(response.content)).convert("RGB")
         else:
             img = Image.open(image_path).convert("RGB")
-        
+
         # ImageOps.fit crops and resizes the image from the center to perfectly fit the target size
         return ImageOps.fit(img, size, Image.Resampling.LANCZOS)
     except Exception as e:
+        return None
+
+
+@st.cache_data(show_spinner=False, ttl=600)
+def fetch_dahua_image_bytes(remote_path: str) -> bytes | None:
+    """Pull a JPEG off the Dahua AI box via RPC_Loadfile (digest auth).
+
+    Mirrors back-end/downloadImage.py. Returns None on any failure so the
+    UI can fall back to a 'missing' placeholder instead of crashing.
+    """
+    if not remote_path or remote_path in ("-", ""):
+        return None
+    url = f"http://{DAHUA_HOST}/cgi-bin/RPC_Loadfile{remote_path}"
+    try:
+        r = requests.get(
+            url,
+            auth=HTTPDigestAuth(DAHUA_USER, DAHUA_PASSWORD),
+            verify=False,
+            timeout=15,
+        )
+        r.raise_for_status()
+        ctype = r.headers.get("Content-Type", "")
+        if "text" in ctype or "html" in ctype:
+            return None
+        return r.content
+    except Exception:
+        return None
+
+
+def get_dahua_uniform_image(remote_path, size=(300, 300)):
+    data = fetch_dahua_image_bytes(remote_path)
+    if not data:
+        return None
+    try:
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+        return ImageOps.fit(img, size, Image.Resampling.LANCZOS)
+    except Exception:
         return None
 
 # -----------------------------------------
@@ -161,7 +212,35 @@ with tab1:
                                 else:
                                     st.info("No images have been uploaded for this car yet.")
                                 
-                                # --- 4. Logs Table ---
+                                # --- 4. Detection Frames (Channel + Datetime) ---
+                                if logs_list:
+                                    st.divider()
+                                    st.write(f"#### 🎯 Detections ({len(logs_list)})")
+                                    sorted_logs = sorted(
+                                        logs_list,
+                                        key=lambda lg: lg.get("timestamp") or "",
+                                        reverse=True,
+                                    )
+                                    match_cols = st.columns(3)
+                                    for idx, log in enumerate(sorted_logs):
+                                        with match_cols[idx % 3]:
+                                            frame_path = log.get("frame_image_path")
+                                            uniform_frame = get_dahua_uniform_image(frame_path, size=(300, 300)) if frame_path else None
+
+                                            channel = log.get("camera") or "Unknown"
+                                            ts = log.get("timestamp") or "—"
+                                            method = log.get("match_method") or "—"
+                                            score = log.get("similarity_score")
+                                            score_str = f" · {score*100:.1f}%" if isinstance(score, (int, float)) else ""
+                                            caption = f"📷 CH {channel} · 🕒 {ts} · 🔎 {method}{score_str}"
+
+                                            if uniform_frame:
+                                                st.image(uniform_frame, caption=caption, use_container_width=True)
+                                            else:
+                                                st.warning(f"Frame missing: {frame_path or '(no path)'}")
+                                                st.caption(caption)
+
+                                # --- 5. Logs Table ---
                                 if logs_list:
                                     st.divider()
                                     st.write("#### 📝 Activity Logs")
